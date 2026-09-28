@@ -24,12 +24,12 @@ jobs:
         working-directory: project
         run: npm install
 
-      - - name: Build Android project
-  working-directory: project
-  run: |
-    npm install -D typescript
-    npx cap add android
-    npx cap sync android
+      - name: Build Android project
+        working-directory: project
+        run: |
+          npm install -D typescript
+          npx cap add android
+          npx cap sync android
 
       - name: Build APK
         working-directory: project/android
