@@ -1,0 +1,46 @@
+name: Extract KBuild Upload ZIP
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "*.zip"
+
+permissions:
+  contents: write
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract ZIP and add files
+        run: |
+          set -e
+
+          ZIP_FILE=$(find . -maxdepth 1 -type f -name "*.zip" | head -n 1)
+
+          if [ -z "$ZIP_FILE" ]; then
+            echo "No ZIP file found."
+            exit 1
+          fi
+
+          echo "Found: $ZIP_FILE"
+
+          mkdir -p extracted
+          unzip -o "$ZIP_FILE" -d extracted
+
+          cp -a extracted/. .
+
+          rm -f "$ZIP_FILE"
+          rm -rf extracted
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+          git commit -m "Extract KBuild Network project [skip ci]" || echo "Nothing to commit"
+          git push
