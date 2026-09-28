@@ -16,6 +16,57 @@ jobs:
 
       - name: Extract project ZIP
         run: |
+          ZIP=$(find . -maxdepth 2 -type f -iname "*.zip" | head -1)
+          echo "ZIP found: $ZIP"
+          mkdir -p project
+          unzip -q "$ZIP" -d project
+
+      - name: Install dependencies
+        working-directory: project
+        run: |
+          npm install
+          npm install --save-dev typescript
+
+      - name: Build Android project
+        working-directory: project
+        run: |
+          ./node_modules/.bin/tsc --version
+          npx cap add android
+          npx cap sync android
+
+      - name: Build APK
+        working-directory: project/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Save APK
+        run: |
+          mkdir -p apk-output
+          cp project/android/app/build/outputs/apk/debug/app-debug.apk apk-output/KBuild-Network.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: KBuild-Network-APK
+          path: apk-output/KBuild-Network.apkname: KBuild Android APK
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Extract project ZIP
+        run: |
           ZIP=$(find . -type f -iname "*.zip" | head -1)
           mkdir project
           unzip -q "$ZIP" -d project
