@@ -1,4 +1,4 @@
-name: KBuild Network Android APK
+ name: KBuild Network Android APK
 
 on:
   push:
@@ -12,23 +12,15 @@ jobs:
 
     steps:
 
-      # 1. Checkout repository
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
-      # 2. Check environment
       - name: Check environment
         run: |
-          echo "Node:"
           node --version
-
-          echo "NPM:"
           npm --version
-
-          echo "Java:"
           java --version
 
-      # 3. Install Java 21
       - name: Install Java 21
         run: |
           sudo apt-get update
@@ -39,65 +31,49 @@ jobs:
 
           java --version
 
-      # 4. Find and extract the real KBuild Network source ZIP
-      - name: Extract KBuild Network source
+      - name: Find KBuild source ZIP
         run: |
           ZIP_FILE=$(find . -type f -iname '*KBuild_Network_GITHUB_UPLOAD_READY*.zip' | head -n 1)
 
           if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: KBuild Network source ZIP not found"
+            echo "KBuild source ZIP not found"
+            echo "Available ZIP files:"
+            find . -type f -name "*.zip"
             exit 1
           fi
 
-          echo "Found source ZIP:"
-          echo "$ZIP_FILE"
+          echo "SOURCE ZIP = $ZIP_FILE"
+          echo "SOURCE_ZIP=$ZIP_FILE" >> "$GITHUB_ENV"
 
-          rm -rf source
-          mkdir -p source
-
-          unzip -q "$ZIP_FILE" -d source
-
-          echo "Extracted files:"
-          find source -maxdepth 2 -type f -print
-
-      # 5. Copy real website files
-      - name: Prepare real KBuild Network website
-        run: |
-          cp -a source/. .
-
-          echo "Website files:"
-          ls -lah
-
-          test -f index.html
-          test -f kbuild-logo.png
-          test -f package.json
-
-          echo "Real KBuild Network website found"
-
-      # 6. Create clean web directory
-      - name: Prepare Capacitor web directory
+      - name: Extract real KBuild website
         run: |
           rm -rf www
           mkdir -p www
 
-          cp index.html www/
-          cp kbuild-logo.png www/
+          unzip -l "$SOURCE_ZIP"
 
-          if [ -f robots.txt ]; then
-            cp robots.txt www/
+          unzip -p "$SOURCE_ZIP" index.html > www/index.html
+          unzip -p "$SOURCE_ZIP" kbuild-logo.png > www/kbuild-logo.png
+
+          if [ -f www/index.html ]; then
+            echo "index.html created"
+          else
+            echo "index.html extraction failed"
+            exit 1
           fi
 
-          if [ -f sitemap.xml ]; then
-            cp sitemap.xml www/
-          fi
+          echo "index.html size:"
+          wc -c www/index.html
 
-          echo "www directory:"
-          find www -maxdepth 2 -type f -print
+          echo "Checking actual KBuild interface:"
+          grep -o "Construction Marketplace" www/index.html | head -n 1 || true
 
-      # 7. Create Capacitor configuration
-      - name: Configure Capacitor
+          grep -o "KBuild Network" www/index.html | head -n 3 || true
+
+      - name: Create Capacitor config
         run: |
           rm -f capacitor.config.ts
+          rm -f capacitor.config.json
 
           cat > capacitor.config.json <<'EOF'
           {
@@ -112,52 +88,51 @@ jobs:
 
           cat capacitor.config.json
 
-      # 8. Install dependencies
       - name: Install dependencies
         run: |
           npm install
 
-      # 9. Remove any old Android project
-      - name: Prepare Android platform
+      - name: Remove old Android project
         run: |
           rm -rf android
 
-      # 10. Create Android project
       - name: Add Android platform
         run: |
           npx cap add android
 
-      # 11. Sync real KBuild Network website
-      - name: Sync Capacitor
+      - name: Sync KBuild website
         run: |
           npx cap sync android
 
-      # 12. Check Android project
-      - name: Check Android project
+      - name: Verify website inside Android project
         run: |
-          test -f android/gradlew
-          test -f android/app/build.gradle
+          test -f www/index.html
+          test -f android/app/src/main/assets/public/index.html
 
-          echo "Android project created successfully"
+          echo "Web index size:"
+          wc -c www/index.html
 
-      # 13. Build APK
-      - name: Build Android APK
+          echo "Android bundled index size:"
+          wc -c android/app/src/main/assets/public/index.html
+
+          echo "Checking bundled KBuild interface:"
+          grep -o "Construction Marketplace" \
+            android/app/src/main/assets/public/index.html | head -n 1 || true
+
+      - name: Build APK
         working-directory: android
         run: |
           chmod +x gradlew
+          ./gradlew clean
           ./gradlew assembleDebug --stacktrace --no-daemon
 
-      # 14. Verify APK
       - name: Verify APK
         run: |
-          echo "APK files:"
-          find android/app/build/outputs/apk -type f -name "*.apk" -print
-
           test -f android/app/build/outputs/apk/debug/app-debug.apk
 
-          echo "APK successfully created"
+          echo "APK successfully created:"
+          ls -lh android/app/build/outputs/apk/debug/app-debug.apk
 
-      # 15. Upload APK
       - name: Upload APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
