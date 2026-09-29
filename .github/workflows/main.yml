@@ -1,0 +1,130 @@
+name: KBuild Network Android APK
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # 1. Download repository
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      # 2. Check installed tools
+      - name: Check environment
+        run: |
+          echo "Node:"
+          node --version
+
+          echo "NPM:"
+          npm --version
+
+          echo "Java:"
+          java --version
+
+      # 3. Install Java 21
+      - name: Install Java 21
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openjdk-21-jdk
+
+          echo "JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64" >> "$GITHUB_ENV"
+          echo "/usr/lib/jvm/java-21-openjdk-amd64/bin" >> "$GITHUB_PATH"
+
+          java --version
+
+      # 4. Install Node dependencies
+      - name: Install dependencies
+        run: |
+          npm install
+
+      # 5. Create clean web application
+      - name: Prepare web application
+        run: |
+          rm -rf www
+          mkdir -p www
+
+          cat > www/index.html <<'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="UTF-8">
+            <meta
+              name="viewport"
+              content="width=device-width, initial-scale=1.0"
+            >
+            <title>KBuild Network</title>
+          </head>
+
+          <body>
+            <h1>KBuild Network</h1>
+            <p>KBuild Network mobile application</p>
+          </body>
+          </html>
+          EOF
+
+      # 6. Create clean Capacitor configuration
+      - name: Configure Capacitor
+        run: |
+          rm -f capacitor.config.ts
+
+          cat > capacitor.config.json <<'EOF'
+          {
+            "appId": "com.kbuild.network",
+            "appName": "KBuild Network",
+            "webDir": "www"
+          }
+          EOF
+
+      # 7. Remove old Android folder from CI workspace
+      - name: Prepare Android platform
+        run: |
+          rm -rf android
+
+      # 8. Create Android project
+      - name: Add Android platform
+        run: |
+          npx cap add android
+
+      # 9. Sync web files and Capacitor plugins
+      - name: Sync Capacitor
+        run: |
+          npx cap sync android
+
+      # 10. Check Android project
+      - name: Check Android project
+        run: |
+          test -f android/gradlew
+          test -f android/app/build.gradle
+          echo "Android project created successfully"
+
+      # 11. Build APK
+      - name: Build Android APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace --no-daemon
+
+      # 12. Verify APK
+      - name: Verify APK
+        run: |
+          echo "APK files:"
+          find android/app/build/outputs/apk -type f -name "*.apk" -print
+
+          test -f android/app/build/outputs/apk/debug/app-debug.apk
+
+          echo "APK successfully created"
+
+      # 13. Upload APK
+      - name: Upload APK
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: KBuild-Network-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
