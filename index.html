@@ -669,6 +669,18 @@ async function loadAdminDashboard(e){
 window.__adminPhone=phone;
 } 
 
+
+async function adminSetPartnerStatus(partnerId,status){
+  const adminPhone=window.__adminPhone||'';
+  if(!partnerId||!adminPhone)return;
+  const action=status==='approved'?'approve':'reject';
+  if(!confirm((action==='approve'?'Approve':'Reject')+' this partner?'))return;
+  const {error}=await supabaseClient.rpc('admin_set_partner_status',{p_admin_phone:adminPhone,p_partner_id:Number(partnerId),p_status:status});
+  if(error){alert('Could not '+action+' partner: '+error.message);return;}
+  alert(status==='approved'?'Partner approved successfully.':'Partner rejected successfully.');
+  loadAdminDashboard({preventDefault(){}});
+}
+
 async function loadAdminDetail(type, filter){
  const out=document.getElementById('adminDetail'); const phone=window.__adminPhone; if(!out||!phone)return;
  out.innerHTML='<div class="loading">Loading details...</div>';
@@ -681,7 +693,7 @@ async function loadAdminDetail(type, filter){
  const fmt=x=>x?new Date(x).toLocaleString('en-IN'):'';
  let html='<div class="dashboard-panel"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h4>📋 '+title+'</h4><button class="btn secondary" onclick="document.getElementById(\'adminDetail\').innerHTML=\'\'">Close</button></div><div class="dashboard-list">';
  if(type==='requirements') rows.forEach(x=>html+=`<div class="dashboard-list-item"><strong>${escapeHtml(x.customer_name||'Customer')} · ${escapeHtml(x.requirement||'Requirement')}</strong><small>${escapeHtml(x.phone||'')} · ${escapeHtml(x.city||x.location||'')} · ${fmt(x.created_at)}</small></div>`);
- if(type==='partners') rows.forEach(x=>html+=`<div class="dashboard-list-item"><strong>${escapeHtml(x.business_name||'Partner')}</strong><small>${escapeHtml(x.category||'')} · ${escapeHtml(x.phone||'')} · ${escapeHtml([x.city,x.state].filter(Boolean).join(', '))}</small></div>`);
+ if(type==='partners') rows.forEach(x=>html+=`<div class="dashboard-list-item"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap"><div><strong>${escapeHtml(x.business_name||'Partner')}</strong><small>${escapeHtml(x.category||'')} · ${escapeHtml(x.phone||'')} · ${escapeHtml([x.city,x.state].filter(Boolean).join(', '))}</small><small>Status: ${escapeHtml(x.status||'')}</small></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn green" type="button" onclick="adminSetPartnerStatus('${String(x.id||'')}','approved')">✓ Approve</button><button class="btn secondary" type="button" onclick="adminSetPartnerStatus('${String(x.id||'')}','rejected')">Reject</button></div></div></div>`);
  if(type==='connections') rows.forEach(x=>html+=`<div class="dashboard-list-item"><strong>${escapeHtml(x.customer_name||'Customer')} ↔ ${escapeHtml(x.partner_name||'Partner')}</strong><small>${escapeHtml(x.status||'')} · ${escapeHtml(x.requirement||'Requirement')} · ${fmt(x.created_at)}</small></div>`);
  if(type==='quotations') rows.forEach(x=>html+=`<div class="dashboard-list-item"><strong>${escapeHtml(x.quotation_number||'Quotation')} · ₹${Number(x.grand_total||0).toLocaleString('en-IN')}</strong><small>${escapeHtml(x.customer_name||'Customer')} ↔ ${escapeHtml(x.partner_name||'Partner')} · ${escapeHtml(x.status||'')} · ${fmt(x.created_at)}</small></div>`);
  if(type==='notifications') rows.forEach(x=>html+=`<div class="dashboard-list-item"><strong>${escapeHtml(x.title||'Notification')}</strong><small>${escapeHtml(x.recipient_phone||'')} · ${escapeHtml(x.body||'')} · ${fmt(x.created_at)}</small></div>`);

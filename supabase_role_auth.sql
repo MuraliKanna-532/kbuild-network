@@ -89,3 +89,59 @@ DROP TRIGGER IF EXISTS kbuild_sync_partner_approval_trigger ON public.vendors;
 CREATE TRIGGER kbuild_sync_partner_approval_trigger
 AFTER INSERT OR UPDATE OF status, auth_user_id ON public.vendors
 FOR EACH ROW EXECUTE FUNCTION public.kbuild_sync_partner_approval();
+
+-- Admin approval controls for partner onboarding.
+CREATE OR REPLACE FUNCTION public.admin_set_partner_status(
+  p_admin_phone text,
+  p_partner_id bigint,
+  p_status text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_phone text := right(regexp_replace(coalesce(p_admin_phone,''),'[^0-9]','','g'),10);
+  v_status text := lower(trim(coalesce(p_status,'')));
+  v_vendor public.vendors;
+  v_profile public.kbuild_profiles;
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM public.kbuild_admins
+    WHERE right(regexp_replace(coalesce(phone,''),'[^0-9]','','g'),10)=v_phone
+      AND coalesce(active,true)=true
+  ) THEN
+    RAISE EXCEPTION 'Admin access denied';
+  END IF;
+
+  IF v_status NOT IN ('approved','rejected','pending') THEN
+    RAISE EXCEPTION 'Invalid partner status';
+  END IF;
+
+  UPDATE public.vendors
+  SET status=v_status
+  WHERE id=p_partner_id
+  RETURNING * INTO v_vendor;
+
+  IF v_vendor.id IS NULL THEN
+    RAISE EXCEPTION 'Partner not found';
+  END IF;
+
+  IF v_vendor.auth_user_id IS NOT NULL THEN
+    UPDATE public.kbuild_profiles
+    SET approval_status=v_status, updated_at=now()
+    WHERE id=v_vendor.auth_user_id AND role='partner'
+    RETURNING * INTO v_profile;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'success',true,
+    'partner_id',v_vendor.id,
+    'status',v_status,
+    'business_name',v_vendor.business_name,
+    'phone',v_vendor.phone
+  );
+END $$;
+
+GRANT EXECUTE ON FUNCTION public.admin_set_partner_status(text,bigint,text) TO anon, authenticated;
