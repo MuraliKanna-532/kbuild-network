@@ -6,21 +6,37 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build-android:
     runs-on: ubuntu-latest
 
     steps:
 
+      # =====================================================
+      # 1. CHECKOUT
+      # =====================================================
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
+      # =====================================================
+      # 2. CHECK ENVIRONMENT
+      # =====================================================
       - name: Check environment
         run: |
+          echo "======================================"
+          echo "ENVIRONMENT"
+          echo "======================================"
+
           node --version
           npm --version
-          java --version
+          java --version || true
 
+      # =====================================================
+      # 3. INSTALL JAVA 21
+      # =====================================================
       - name: Install Java 21
         run: |
           sudo apt-get update
@@ -29,55 +45,82 @@ jobs:
           echo "JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64" >> "$GITHUB_ENV"
           echo "/usr/lib/jvm/java-21-openjdk-amd64/bin" >> "$GITHUB_PATH"
 
+          echo "======================================"
+          echo "JAVA VERSION"
+          echo "======================================"
+
           java --version
 
       # =====================================================
-      # FIND ANY KBUILD SOURCE ZIP
+      # 4. FIND KBUILD SOURCE ZIP
       # =====================================================
       - name: Find KBuild source ZIP
+        shell: bash
         run: |
-          ZIP_FILE=$(find . -type f \
-            -name 'KBuild_Network_GITHUB_UPLOAD_READY*.zip' \
+          set -e
+
+          echo "======================================"
+          echo "SEARCHING FOR KBUILD ZIP"
+          echo "======================================"
+
+          ZIP_FILE=$(find . -maxdepth 1 -type f \
+            -name 'KBuild_Network*.zip' \
             | head -n 1)
 
           if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: KBuild source ZIP not found."
-
             echo ""
-            echo "ZIP files in repository:"
-            find . -type f -name "*.zip" -print
+            echo "ERROR: KBuild source ZIP not found."
+            echo ""
+            echo "ZIP files available in repository:"
+            find . -type f -name "*.zip" -print || true
+            echo ""
 
             exit 1
           fi
 
-          echo "======================================"
-          echo "KBUILD SOURCE ZIP FOUND"
-          echo "======================================"
+          echo "KBUILD SOURCE ZIP FOUND:"
           echo "$ZIP_FILE"
 
           echo "SOURCE_ZIP=$ZIP_FILE" >> "$GITHUB_ENV"
 
       # =====================================================
-      # EXTRACT SOURCE
+      # 5. EXTRACT SOURCE ZIP
       # =====================================================
       - name: Extract KBuild source
+        shell: bash
         run: |
+          set -e
+
+          echo "======================================"
+          echo "EXTRACTING KBUILD SOURCE"
+          echo "======================================"
+
           rm -rf extracted
           mkdir -p extracted
 
-          unzip -q "$SOURCE_ZIP" -d extracted
+          unzip -o "$SOURCE_ZIP" -d extracted
 
+          echo ""
           echo "Extracted files:"
-          find extracted -maxdepth 3 -type f -print | head -200
+          find extracted -maxdepth 4 -type f -print | head -300
 
       # =====================================================
-      # FIND REAL INDEX.HTML
+      # 6. FIND REAL INDEX.HTML
       # =====================================================
       - name: Find real KBuild interface
+        shell: bash
         run: |
+          set -e
+
           REAL_INDEX=""
 
+          echo "======================================"
+          echo "SEARCHING FOR REAL KBUILD INDEX"
+          echo "======================================"
+
           while IFS= read -r FILE; do
+
+            echo "Checking: $FILE"
 
             if grep -q "Construction Marketplace" "$FILE"; then
 
@@ -91,64 +134,93 @@ jobs:
           done < <(find extracted -type f -name "index.html")
 
           if [ -z "$REAL_INDEX" ]; then
+            echo ""
             echo "ERROR: Real KBuild interface not found."
+            echo ""
+
+            echo "Available index.html files:"
+            find extracted -type f -name "index.html" -print || true
 
             echo ""
-            echo "Available index.html files:"
-            find extracted -type f -name "index.html" -print
+            echo "Searching for Construction Marketplace:"
+            grep -RIl "Construction Marketplace" extracted \
+              --include="*.html" \
+              --include="*.js" \
+              --include="*.tsx" \
+              --include="*.jsx" \
+              2>/dev/null || true
 
             exit 1
           fi
 
-          echo "======================================"
-          echo "REAL KBUILD INTERFACE FOUND"
-          echo "======================================"
+          echo ""
+          echo "REAL KBUILD INTERFACE FOUND:"
           echo "$REAL_INDEX"
 
           echo "REAL_INDEX=$REAL_INDEX" >> "$GITHUB_ENV"
 
       # =====================================================
-      # PREPARE WEBSITE
+      # 7. PREPARE WEBSITE
       # =====================================================
       - name: Prepare real KBuild website
+        shell: bash
         run: |
+          set -e
+
+          echo "======================================"
+          echo "PREPARING WEBSITE"
+          echo "======================================"
+
           rm -rf www
           mkdir -p www
 
           WEB_ROOT=$(dirname "$REAL_INDEX")
 
+          echo "Website root:"
+          echo "$WEB_ROOT"
+
           cp -a "$WEB_ROOT"/. www/
 
+          echo ""
           echo "Website files:"
-          find www -maxdepth 3 -type f -print
+          find www -maxdepth 4 -type f -print | head -300
 
           echo ""
-          echo "index.html size:"
+          echo "index.html:"
           wc -c www/index.html
 
       # =====================================================
-      # VALIDATE REAL WEBSITE
+      # 8. VALIDATE WEBSITE
       # =====================================================
       - name: Validate REAL KBuild website
+        shell: bash
         run: |
+          set -e
+
+          echo "======================================"
+          echo "VALIDATING KBUILD WEBSITE"
+          echo "======================================"
+
           test -f www/index.html
 
           grep -q "Construction Marketplace" www/index.html
 
           if grep -q "KBuild Network mobile application" www/index.html; then
-            echo "ERROR: Placeholder detected!"
+            echo "ERROR: Placeholder website detected."
             exit 1
           fi
 
-          echo "======================================"
+          echo ""
           echo "REAL KBUILD WEBSITE CONFIRMED"
-          echo "======================================"
 
       # =====================================================
-      # CAPACITOR PACKAGE
+      # 9. CREATE PACKAGE.JSON
       # =====================================================
       - name: Create Capacitor package
+        shell: bash
         run: |
+          set -e
+
           cat > package.json <<'EOF'
           {
             "name": "kbuild-network-real-mobile",
@@ -165,11 +237,16 @@ jobs:
           }
           EOF
 
+          echo "package.json created."
+
       # =====================================================
-      # CAPACITOR CONFIG
+      # 10. CREATE CAPACITOR CONFIG
       # =====================================================
       - name: Create Capacitor configuration
+        shell: bash
         run: |
+          set -e
+
           rm -f capacitor.config.ts
           rm -f capacitor.config.json
 
@@ -184,34 +261,65 @@ jobs:
           }
           EOF
 
+          echo "Capacitor configuration created."
+
       # =====================================================
-      # INSTALL
+      # 11. INSTALL NPM DEPENDENCIES
       # =====================================================
       - name: Install dependencies
+        shell: bash
         run: |
+          set -e
+
+          echo "======================================"
+          echo "INSTALLING NPM DEPENDENCIES"
+          echo "======================================"
+
           npm install
 
       # =====================================================
-      # FRESH ANDROID PROJECT
+      # 12. CREATE FRESH ANDROID PROJECT
       # =====================================================
       - name: Create fresh Android project
+        shell: bash
         run: |
+          set -e
+
+          echo "======================================"
+          echo "CREATING ANDROID PROJECT"
+          echo "======================================"
+
           rm -rf android
+
           npx cap add android
 
       # =====================================================
-      # SYNC
+      # 13. SYNC WEBSITE TO ANDROID
       # =====================================================
       - name: Sync REAL KBuild website
+        shell: bash
         run: |
+          set -e
+
+          echo "======================================"
+          echo "SYNCING WEBSITE TO ANDROID"
+          echo "======================================"
+
           npx cap sync android
 
       # =====================================================
-      # VERIFY ANDROID BUNDLE
+      # 14. VERIFY ANDROID WEBSITE BUNDLE
       # =====================================================
       - name: Verify Android website bundle
+        shell: bash
         run: |
+          set -e
+
           BUNDLED_INDEX="android/app/src/main/assets/public/index.html"
+
+          echo "======================================"
+          echo "VERIFYING ANDROID WEBSITE"
+          echo "======================================"
 
           test -f "$BUNDLED_INDEX"
 
@@ -221,20 +329,26 @@ jobs:
           grep -q "Construction Marketplace" "$BUNDLED_INDEX"
 
           if grep -q "KBuild Network mobile application" "$BUNDLED_INDEX"; then
-            echo "ERROR: Placeholder reached Android bundle!"
+            echo "ERROR: Placeholder reached Android bundle."
             exit 1
           fi
 
-          echo "======================================"
+          echo ""
           echo "REAL WEBSITE IS INSIDE ANDROID"
-          echo "======================================"
 
       # =====================================================
-      # BUILD APK
+      # 15. BUILD APK
       # =====================================================
       - name: Build REAL FINAL APK
         working-directory: android
+        shell: bash
         run: |
+          set -e
+
+          echo "======================================"
+          echo "BUILDING APK"
+          echo "======================================"
+
           chmod +x gradlew
 
           ./gradlew clean
@@ -244,22 +358,27 @@ jobs:
             --stacktrace
 
       # =====================================================
-      # VERIFY APK
+      # 16. VERIFY APK
       # =====================================================
       - name: Verify final APK
+        shell: bash
         run: |
+          set -e
+
           APK="android/app/build/outputs/apk/debug/app-debug.apk"
+
+          echo "======================================"
+          echo "VERIFYING FINAL APK"
+          echo "======================================"
 
           test -f "$APK"
 
-          echo "======================================"
-          echo "FINAL APK CREATED"
-          echo "======================================"
-
+          echo ""
+          echo "FINAL APK CREATED:"
           ls -lh "$APK"
 
       # =====================================================
-      # UPLOAD APK
+      # 17. UPLOAD APK
       # =====================================================
       - name: Upload KBuild REAL FINAL APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
