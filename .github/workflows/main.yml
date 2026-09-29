@@ -1,0 +1,141 @@
+name: KBuild Network Android APK
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Check environment
+        run: |
+          node --version
+          npm --version
+          java --version
+
+      - name: Install Java 21
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openjdk-21-jdk
+
+          echo "JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64" >> "$GITHUB_ENV"
+          echo "/usr/lib/jvm/java-21-openjdk-amd64/bin" >> "$GITHUB_PATH"
+
+          java --version
+
+      - name: Find KBuild source ZIP
+        run: |
+          ZIP_FILE=$(find . -type f -iname '*KBuild_Network_GITHUB_UPLOAD_READY*.zip' | head -n 1)
+
+          if [ -z "$ZIP_FILE" ]; then
+            echo "KBuild source ZIP not found"
+            echo "Available ZIP files:"
+            find . -type f -name "*.zip"
+            exit 1
+          fi
+
+          echo "SOURCE ZIP = $ZIP_FILE"
+          echo "SOURCE_ZIP=$ZIP_FILE" >> "$GITHUB_ENV"
+
+      - name: Extract real KBuild website
+        run: |
+          rm -rf www
+          mkdir -p www
+
+          unzip -l "$SOURCE_ZIP"
+
+          unzip -p "$SOURCE_ZIP" index.html > www/index.html
+          unzip -p "$SOURCE_ZIP" kbuild-logo.png > www/kbuild-logo.png
+
+          if [ -f www/index.html ]; then
+            echo "index.html created"
+          else
+            echo "index.html extraction failed"
+            exit 1
+          fi
+
+          echo "index.html size:"
+          wc -c www/index.html
+
+          echo "Checking actual KBuild interface:"
+          grep -o "Construction Marketplace" www/index.html | head -n 1 || true
+
+          grep -o "KBuild Network" www/index.html | head -n 3 || true
+
+      - name: Create Capacitor config
+        run: |
+          rm -f capacitor.config.ts
+          rm -f capacitor.config.json
+
+          cat > capacitor.config.json <<'EOF'
+          {
+            "appId": "com.kbuild.network",
+            "appName": "KBuild Network",
+            "webDir": "www",
+            "server": {
+              "androidScheme": "https"
+            }
+          }
+          EOF
+
+          cat capacitor.config.json
+
+      - name: Install dependencies
+        run: |
+          npm install
+
+      - name: Remove old Android project
+        run: |
+          rm -rf android
+
+      - name: Add Android platform
+        run: |
+          npx cap add android
+
+      - name: Sync KBuild website
+        run: |
+          npx cap sync android
+
+      - name: Verify website inside Android project
+        run: |
+          test -f www/index.html
+          test -f android/app/src/main/assets/public/index.html
+
+          echo "Web index size:"
+          wc -c www/index.html
+
+          echo "Android bundled index size:"
+          wc -c android/app/src/main/assets/public/index.html
+
+          echo "Checking bundled KBuild interface:"
+          grep -o "Construction Marketplace" \
+            android/app/src/main/assets/public/index.html | head -n 1 || true
+
+      - name: Build APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew clean
+          ./gradlew assembleDebug --stacktrace --no-daemon
+
+      - name: Verify APK
+        run: |
+          test -f android/app/build/outputs/apk/debug/app-debug.apk
+
+          echo "APK successfully created:"
+          ls -lh android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: KBuild-Network-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
