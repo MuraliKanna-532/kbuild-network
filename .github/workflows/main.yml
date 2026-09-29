@@ -12,11 +12,11 @@ jobs:
 
     steps:
 
-      # 1. Download repository
+      # 1. Checkout repository
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
-      # 2. Check installed tools
+      # 2. Check environment
       - name: Check environment
         run: |
           echo "Node:"
@@ -39,37 +39,62 @@ jobs:
 
           java --version
 
-      # 4. Install Node dependencies
-      - name: Install dependencies
+      # 4. Find and extract the real KBuild Network source ZIP
+      - name: Extract KBuild Network source
         run: |
-          npm install
+          ZIP_FILE=$(find . -type f -iname '*KBuild_Network_GITHUB_UPLOAD_READY*.zip' | head -n 1)
 
-      # 5. Create clean web application
-      - name: Prepare web application
+          if [ -z "$ZIP_FILE" ]; then
+            echo "ERROR: KBuild Network source ZIP not found"
+            exit 1
+          fi
+
+          echo "Found source ZIP:"
+          echo "$ZIP_FILE"
+
+          rm -rf source
+          mkdir -p source
+
+          unzip -q "$ZIP_FILE" -d source
+
+          echo "Extracted files:"
+          find source -maxdepth 2 -type f -print
+
+      # 5. Copy real website files
+      - name: Prepare real KBuild Network website
+        run: |
+          cp -a source/. .
+
+          echo "Website files:"
+          ls -lah
+
+          test -f index.html
+          test -f kbuild-logo.png
+          test -f package.json
+
+          echo "Real KBuild Network website found"
+
+      # 6. Create clean web directory
+      - name: Prepare Capacitor web directory
         run: |
           rm -rf www
           mkdir -p www
 
-          cat > www/index.html <<'EOF'
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <meta charset="UTF-8">
-            <meta
-              name="viewport"
-              content="width=device-width, initial-scale=1.0"
-            >
-            <title>KBuild Network</title>
-          </head>
+          cp index.html www/
+          cp kbuild-logo.png www/
 
-          <body>
-            <h1>KBuild Network</h1>
-            <p>KBuild Network mobile application</p>
-          </body>
-          </html>
-          EOF
+          if [ -f robots.txt ]; then
+            cp robots.txt www/
+          fi
 
-      # 6. Create clean Capacitor configuration
+          if [ -f sitemap.xml ]; then
+            cp sitemap.xml www/
+          fi
+
+          echo "www directory:"
+          find www -maxdepth 2 -type f -print
+
+      # 7. Create Capacitor configuration
       - name: Configure Capacitor
         run: |
           rm -f capacitor.config.ts
@@ -78,40 +103,51 @@ jobs:
           {
             "appId": "com.kbuild.network",
             "appName": "KBuild Network",
-            "webDir": "www"
+            "webDir": "www",
+            "server": {
+              "androidScheme": "https"
+            }
           }
           EOF
 
-      # 7. Remove old Android folder from CI workspace
+          cat capacitor.config.json
+
+      # 8. Install dependencies
+      - name: Install dependencies
+        run: |
+          npm install
+
+      # 9. Remove any old Android project
       - name: Prepare Android platform
         run: |
           rm -rf android
 
-      # 8. Create Android project
+      # 10. Create Android project
       - name: Add Android platform
         run: |
           npx cap add android
 
-      # 9. Sync web files and Capacitor plugins
+      # 11. Sync real KBuild Network website
       - name: Sync Capacitor
         run: |
           npx cap sync android
 
-      # 10. Check Android project
+      # 12. Check Android project
       - name: Check Android project
         run: |
           test -f android/gradlew
           test -f android/app/build.gradle
+
           echo "Android project created successfully"
 
-      # 11. Build APK
+      # 13. Build APK
       - name: Build Android APK
         working-directory: android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace --no-daemon
 
-      # 12. Verify APK
+      # 14. Verify APK
       - name: Verify APK
         run: |
           echo "APK files:"
@@ -121,7 +157,7 @@ jobs:
 
           echo "APK successfully created"
 
-      # 13. Upload APK
+      # 15. Upload APK
       - name: Upload APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
