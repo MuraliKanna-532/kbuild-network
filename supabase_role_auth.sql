@@ -145,3 +145,14 @@ BEGIN
 END $$;
 
 GRANT EXECUTE ON FUNCTION public.admin_set_partner_status(text,bigint,text) TO anon, authenticated;
+
+
+-- Rating & Reviews
+-- The web app reads the existing rating RPCs:
+--   get_public_partner_profile
+--   get_public_partner_reviews
+--   get_customer_rating
+--   submit_customer_rating
+-- Ratings are intended to be submitted only after a quotation/order is completed.
+-- The Partner Profile and category discovery cards display the resulting average rating
+-- and review count. Keep these RPCs backed by the same existing rating data source.
