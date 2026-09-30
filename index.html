@@ -1430,7 +1430,7 @@ async function kbuildFinishProfile(){
     if(role==='partner'){
       const business_name=document.getElementById('kbaBusinessName').value.trim(),category=document.getElementById('kbaPartnerCategory').value,city=document.getElementById('kbaPartnerCity').value.trim(),description=document.getElementById('kbaPartnerServices').value.trim();
       const existing=await supabaseClient.from('vendors').select('id').eq('phone',phone).limit(1);
-      if(!existing.error && existing.data && existing.data.length){await supabaseClient.from('vendors').eq('id',existing.data[0].id).update({business_name,category,city,description,status:'pending',auth_user_id:(window.kbuildAuthSession&&window.kbuildAuthSession.user?window.kbuildAuthSession.user.id:null)});}
+      if(!existing.error && existing.data && existing.data.length){await supabaseClient.from('vendors').update({business_name,category,city,description,status:'pending',auth_user_id:(window.kbuildAuthSession&&window.kbuildAuthSession.user?window.kbuildAuthSession.user.id:null)}).eq('id',existing.data[0].id);}
       else {await supabaseClient.from('vendors').insert([{business_name,phone,category,city,description,status:'pending',auth_user_id:(window.kbuildAuthSession&&window.kbuildAuthSession.user?window.kbuildAuthSession.user.id:null)}]);}
     }
     const p=await kbuildLoadMyProfile();if(!p)throw new Error('Profile was saved but could not be loaded.');kbuildEnterApp(p);
