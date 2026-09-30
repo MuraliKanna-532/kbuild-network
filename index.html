@@ -77,45 +77,34 @@ section{max-width:1100px;margin:auto;padding:55px 20px}.title{text-align:center;
   <div class="kba-card">
     <img class="kba-logo" src="kbuild-logo.png" alt="KBuild Network">
     <h1 class="kba-title">KBuild Network</h1>
-    <p class="kba-sub">One app. Your role. Your relevant network.</p>
+    <p class="kba-sub">Testing Mode · Choose the interface you want to test</p>
 
-    <div id="kbaStepPhone" class="kba-step active">
-      <h3>Login / Sign Up</h3>
-      <p class="muted" style="margin-top:5px">Use your main mobile number. We will send an OTP.</p>
-      <div class="kba-field"><label>Mobile Number</label><input id="kbaPhone" type="tel" inputmode="numeric" maxlength="10" placeholder="10-digit mobile number"></div>
-      <div class="kba-actions"><button class="btn" id="kbaSendOtp" onclick="kbuildSendOtp()">Send OTP</button></div>
-      <div id="kbaPhoneMsg" class="kba-msg" style="display:none"></div>
+    <div id="kbaStepRole" class="kba-step active">
+      <h3>Choose Interface</h3>
+      <p class="muted" style="margin-top:5px">OTP is temporarily disabled. This is only for app testing. Real OTP will be added later.</p>
+      <div class="kba-role-grid" style="grid-template-columns:1fr">
+        <button type="button" class="kba-role" onclick="kbuildStartTestingRole('customer')">
+          <strong>👤 Customer</strong><span>Categories, approved service providers, requirements, requests and connections.</span>
+        </button>
+        <button type="button" class="kba-role" onclick="kbuildStartTestingRole('partner')">
+          <strong>🏗️ Service Provider / Partner</strong><span>Own profile, relevant customer requirements, connections and quotations.</span>
+        </button>
+        <button type="button" class="kba-role" onclick="kbuildStartTestingRole('admin')">
+          <strong>🛡️ Admin</strong><span>Partner approvals, customers, requirements, connections, quotations and notifications.</span>
+        </button>
+      </div>
     </div>
 
-    <div id="kbaStepOtp" class="kba-step">
-      <h3>Verify OTP</h3>
-      <p id="kbaOtpHint" class="muted" style="margin-top:5px"></p>
-      <div class="kba-field"><label>OTP</label><input id="kbaOtp" type="tel" inputmode="numeric" maxlength="6" placeholder="Enter 6-digit OTP"></div>
-      <div class="kba-actions"><button class="btn" onclick="kbuildVerifyOtp()">Verify & Continue</button><button class="btn secondary" onclick="kbuildBackToPhone()">Back</button></div>
-      <div id="kbaOtpMsg" class="kba-msg" style="display:none"></div>
-    </div>
-
-    <div id="kbaStepRole" class="kba-step">
-      <h3>Choose your KBuild role</h3>
-      <p class="muted" style="margin-top:5px">This decides the interface and information you see after login.</p>
-      <div class="kba-role-grid">
-        <button type="button" class="kba-role" id="kbaCustomerRole" onclick="kbuildChooseRole('customer')"><strong>👤 Customer</strong><span>See approved service providers and request their services.</span></button>
-        <button type="button" class="kba-role" id="kbaPartnerRole" onclick="kbuildChooseRole('partner')"><strong>🏗️ Partner</strong><span>See approved customer requirements relevant to your service.</span></button>
+    <div id="kbaStepTesting" class="kba-step">
+      <h3 id="kbaTestingTitle">Testing Login</h3>
+      <p id="kbaTestingHint" class="muted" style="margin-top:5px"></p>
+      <div class="kba-field"><label id="kbaTestingPhoneLabel">Mobile Number</label><input id="kbaTestingPhone" type="tel" inputmode="numeric" maxlength="10" placeholder="10-digit mobile number"></div>
+      <div id="kbaTestingNameWrap" class="kba-field"><label>Your Name</label><input id="kbaTestingName" placeholder="Name for this test session"></div>
+      <div id="kbaTestingPartnerWrap" style="display:none">
+        <div class="kba-field"><label>Partner Category</label><select id="kbaTestingPartnerCategory"><option value="">Select category</option><option>Material Supplier</option><option>Engineering Professional</option><option>Contractor</option><option>Equipment Provider</option><option>Sales Department</option></select></div>
       </div>
-      <div id="kbaCustomerFields" style="display:none">
-        <div class="kba-field"><label>Your Name</label><input id="kbaCustomerName" placeholder="Full name"></div>
-        <div class="kba-field"><label>Email (optional)</label><input id="kbaCustomerEmail" type="email" placeholder="name@example.com"></div>
-      </div>
-      <div id="kbaPartnerFields" style="display:none">
-        <div class="kba-field"><label>Business / Professional Name</label><input id="kbaBusinessName" placeholder="Business or professional name"></div>
-        <div class="kba-field"><label>Partner Category</label><select id="kbaPartnerCategory"><option value="">Select category</option><option>Material Supplier</option><option>Engineering Professional</option><option>Contractor</option><option>Equipment Provider</option><option>Sales Department</option></select></div>
-        <div class="kba-field"><label>City</label><input id="kbaPartnerCity" placeholder="e.g. Vijayawada"></div>
-        <div class="kba-field"><label>Services / Products</label><textarea id="kbaPartnerServices" placeholder="What do you provide?"></textarea></div>
-        <div class="kba-field"><label>Email (optional)</label><input id="kbaPartnerEmail" type="email" placeholder="name@example.com"></div>
-        <div class="kba-msg" style="display:block">Partner accounts start as <strong>Pending Admin Approval</strong>. Customers will see the profile only after approval.</div>
-      </div>
-      <div class="kba-actions"><button class="btn" id="kbaFinishBtn" onclick="kbuildFinishProfile()" disabled>Continue</button></div>
-      <div id="kbaRoleMsg" class="kba-msg" style="display:none"></div>
+      <div class="kba-actions"><button class="btn" onclick="kbuildEnterTestingRole()">Continue</button><button class="btn secondary" onclick="kbuildBackToRoleChooser()">Back</button></div>
+      <div id="kbaTestingMsg" class="kba-msg" style="display:none"></div>
     </div>
   </div>
 </div>
@@ -1344,6 +1333,38 @@ async function submitPartner(e){
   form.reset();
 }
 
+/* ================= KBUILD TESTING ROLE MODE ================= */
+function kbuildStartTestingRole(role){
+  window.kbuildSelectedRole=role;
+  document.getElementById('kbaStepRole').classList.remove('active');
+  document.getElementById('kbaStepTesting').classList.add('active');
+  const title={customer:'👤 Customer Testing',partner:'🏗️ Service Provider Testing',admin:'🛡️ Admin Testing'}[role]||'Testing Login';
+  const hint={customer:'Test the customer mobile interface. You can use any 10-digit number for this local test.',partner:'Test the service provider interface. For an existing approved partner, enter that partner mobile number.',admin:'Test the admin interface. Enter an authorized admin mobile number to load real admin data.'}[role]||'';
+  document.getElementById('kbaTestingTitle').textContent=title;
+  document.getElementById('kbaTestingHint').textContent=hint;
+  document.getElementById('kbaTestingNameWrap').style.display=role==='admin'?'none':'block';
+  document.getElementById('kbaTestingPartnerWrap').style.display=role==='partner'?'block':'none';
+  document.getElementById('kbaTestingPhone').value='';
+  document.getElementById('kbaTestingName').value='';
+  document.getElementById('kbaTestingMsg').style.display='none';
+}
+function kbuildBackToRoleChooser(){
+  document.getElementById('kbaStepTesting').classList.remove('active');
+  document.getElementById('kbaStepRole').classList.add('active');
+}
+function kbuildEnterTestingRole(){
+  const role=window.kbuildSelectedRole;
+  const phone=kbuildPhone10(document.getElementById('kbaTestingPhone').value);
+  const msg=document.getElementById('kbaTestingMsg');
+  if(phone.length!==10){kbuildSetMsg('kbaTestingMsg','Enter a valid 10-digit mobile number.','error');return;}
+  const name=role==='admin'?'KBuild Admin':(document.getElementById('kbaTestingName').value.trim()|| (role==='partner'?'Service Provider':'Customer'));
+  const category=document.getElementById('kbaTestingPartnerCategory').value||'';
+  const profile={role,phone,full_name:name,category,approval_status:role==='partner'?'pending':'approved'};
+  window.kbuildCurrentProfile=profile;
+  localStorage.setItem('kbuild_testing_role',JSON.stringify(profile));
+  kbuildEnterApp(profile);
+}
+
 /* ================= KBUILD OTP + ROLE AUTH ================= */
 window.kbuildAuthSession=null;
 window.kbuildCurrentProfile=null;
@@ -1410,11 +1431,37 @@ async function kbuildFinishProfile(){
   finally{btn.disabled=false;btn.textContent='Continue';}
 }
 function kbuildEnterApp(profile){
-  window.kbuildCurrentProfile=profile;const role=String(profile.role||'').toLowerCase();
-  document.getElementById('kbuildAuthGate').style.display='none';document.getElementById('kbuildRoleBar').style.display='block';document.getElementById('kbuildMainHeader').style.display='none';document.getElementById('kbaRoleLabel').textContent=role==='partner'?'🏗️ Partner':'👤 Customer';document.getElementById('kbaUserLabel').textContent=(profile.full_name||'KBuild User')+' · +91 '+kbuildPhone10(profile.phone||'');
-  document.getElementById('kbuildCustomerHome').style.display=role==='customer'?'block':'none';document.getElementById('kbuildPartnerHome').style.display=role==='partner'?'block':'none';
-  document.getElementById('categories').style.display=role==='customer'?'block':'none';document.getElementById('discovery').style.display=role==='customer'?'block':'none';document.getElementById('requirement').style.display=role==='customer'?'block':'none';document.getElementById('kbuildHero').style.display=role==='customer'?'block':'none';
-  if(role==='partner')kbuildLoadPartnerHome();
+  window.kbuildCurrentProfile=profile;
+  const role=String(profile.role||'').toLowerCase();
+  document.getElementById('kbuildAuthGate').style.display='none';
+  document.getElementById('kbuildRoleBar').style.display='block';
+  document.getElementById('kbuildMainHeader').style.display='none';
+  document.getElementById('kbaRoleLabel').textContent=role==='partner'?'🏗️ Service Provider':role==='admin'?'🛡️ Admin':'👤 Customer';
+  document.getElementById('kbaUserLabel').textContent=(profile.full_name||'KBuild User')+' · +91 '+kbuildPhone10(profile.phone||'');
+  document.getElementById('kbuildCustomerHome').style.display=role==='customer'?'block':'none';
+  document.getElementById('kbuildPartnerHome').style.display=role==='partner'?'block':'none';
+  document.getElementById('kbuildHero').style.display=role==='customer'?'block':'none';
+  document.getElementById('categories').style.display=role==='customer'?'block':'none';
+  document.getElementById('discovery').style.display=role==='customer'?'block':'none';
+  document.getElementById('requirement').style.display=role==='customer'?'block':'none';
+  document.getElementById('services').style.display='none';
+  document.getElementById('connections').style.display=role==='partner'?'block':'none';
+  document.getElementById('publicProfiles').style.display=role==='customer'?'block':'none';
+  document.getElementById('notifications').style.display=role!=='admin'?'block':'block';
+  document.getElementById('customerDashboard').style.display=role==='customer'?'block':'none';
+  document.getElementById('partnerDashboard').style.display=role==='partner'?'block':'none';
+  document.getElementById('partner').style.display=role==='partner'?'block':'none';
+  document.getElementById('adminDashboard').style.display=role==='admin'?'block':'none';
+  document.getElementById('kbaTestingMsg').style.display='none';
+  if(role==='partner') kbuildLoadPartnerHome();
+  if(role==='admin'){
+    const input=document.getElementById('adminPhone'); if(input) input.value=kbuildPhone10(profile.phone||'');
+    setTimeout(()=>document.getElementById('adminDashboard')?.scrollIntoView({behavior:'smooth',block:'start'}),50);
+  } else if(role==='customer'){
+    setTimeout(()=>document.getElementById('kbuildCustomerHome')?.scrollIntoView({behavior:'smooth',block:'start'}),50);
+  } else {
+    setTimeout(()=>document.getElementById('kbuildPartnerHome')?.scrollIntoView({behavior:'smooth',block:'start'}),50);
+  }
 }
 async function kbuildLoadPartnerHome(){
   const p=window.kbuildCurrentProfile||{};const phone=kbuildPhone10(p.phone||'');document.getElementById('kbaPartnerWelcome').textContent=(p.full_name||'Partner')+' · Your profile is '+(String(p.approval_status||'pending').toUpperCase())+'. Approved customers and connections relevant to your service appear here.';
@@ -1424,10 +1471,12 @@ async function kbuildLoadPartnerHome(){
   const x=Array.isArray(d.data)?d.data[0]:d.data;pb.innerHTML=`<div class="kba-home-item"><strong>${escapeHtml(x.business_name||p.full_name||'Partner')}</strong><small>${escapeHtml(x.category||p.category||'Partner')} · ${escapeHtml(x.city||p.city||'')}</small></div><div class="kba-home-item"><strong>${Number(x.active_connections||0)}</strong><small>Active customer connections</small></div>`;
   const c=Array.isArray(x.recent_connections)?x.recent_connections:[];cb.innerHTML=c.length?c.map(v=>`<div class="kba-home-item"><strong>${escapeHtml(v.customer_name||'Customer')}</strong><small>${escapeHtml(v.requirement_name||'Requirement')} · ${escapeHtml(v.location||'')} · ${escapeHtml(v.status||'')}</small></div>`).join(''):'<div class="empty-state">No approved customer connections yet.</div>';
 }
-function kbuildLogout(){window.kbuildAuthSession=null;window.kbuildCurrentProfile=null;localStorage.removeItem('kbuild_auth_session');location.reload();}
+function kbuildLogout(){window.kbuildAuthSession=null;window.kbuildCurrentProfile=null;localStorage.removeItem('kbuild_auth_session');localStorage.removeItem('kbuild_testing_role');location.reload();}
 async function kbuildBootAuth(){
-  try{const raw=localStorage.getItem('kbuild_auth_session');if(raw)window.kbuildAuthSession=JSON.parse(raw);}catch(_){window.kbuildAuthSession=null;}
-  if(window.kbuildAuthSession && window.kbuildAuthSession.access_token){const p=await kbuildLoadMyProfile();if(p){kbuildEnterApp(p);return;}}
+  try{
+    const raw=localStorage.getItem('kbuild_testing_role');
+    if(raw){const p=JSON.parse(raw);if(p&&['customer','partner','admin'].includes(String(p.role||''))){kbuildEnterApp(p);return;}}
+  }catch(_){}
   document.getElementById('kbuildAuthGate').style.display='flex';
 }
 window.addEventListener('load',()=>setTimeout(kbuildBootAuth,100));
